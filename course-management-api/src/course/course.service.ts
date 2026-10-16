@@ -49,15 +49,12 @@ export class CourseService {
     };
   }
 
-  uploadCourseMaterial(
-    id: string,
-    file: { filename: string },
-  ) {
-    return {
-      message: 'Material uploaded successfully',
-      courseId: id,
-      filename: file.filename,
-      path: `uploads/${file.filename}`,
-    };
-  }
+  uploadCourseMaterial(id: string, file: Express.Multer.File) {
+  return {
+    message: 'Material uploaded successfully',
+    courseId: id,
+    filename: file.filename,
+    path: `uploads/${file.filename}`,
+  };
+}
 }
