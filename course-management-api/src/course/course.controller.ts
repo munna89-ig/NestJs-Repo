@@ -1,9 +1,10 @@
 
-import {Controller,Get,Post,Put, Patch,Delete,Param, Body,UseInterceptors,UploadedFile,BadRequestException,} from '@nestjs/common';
+import {Controller,Get,Post,Put, Patch,Delete,Param, Body,UseInterceptors,UploadedFile,BadRequestException, NotFoundException, ParseFilePipe, MaxFileSizeValidator, FileTypeValidator, Res} from '@nestjs/common';
+import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import {  join } from 'path';
-import { mkdirSync } from 'fs';
+import { basename, join } from 'path';
+import { existsSync, mkdirSync } from 'fs';
 import { CourseService } from './course.service.js';
 import { CreateCourseDto } from './dto/create-course.dto.js';
 import { UpdateCourseDto } from './dto/update-course.dto.js';
@@ -65,8 +66,8 @@ export class CourseController {
 }))
   uploadCourseMaterial(
     @Param('id') id: string,
-    @UploadedFile() file: Express.Multer.File,
-  ) {
+    @UploadedFile() file: Express.Multer.File,)
+     {
     if (!file) {
       throw new BadRequestException(
         'A valid file is required (maximum size: 2MB)',
@@ -75,4 +76,52 @@ export class CourseController {
 
     return this.courseService.uploadCourseMaterial(id, file);
   }
+
+  @Post('profile')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: './uploads',
+        filename: (_req, file, cb) => {
+          const name = `${Date.now()}-${file.originalname}`;
+          cb(null, name);
+        },
+      }),
+    }),
+  )
+ uploadProfile(
+  @UploadedFile(
+    new ParseFilePipe({
+      validators: [
+        new MaxFileSizeValidator({ maxSize: 2 * 1024 * 1024 }),
+        new FileTypeValidator({ fileType: /^image\/(jpeg|png|jpg)$/ }),
+      ],
+    }),
+  )
+  file: Express.Multer.File,
+) {
+  return {
+    message: 'Profile image uploaded successfully',
+    file,
+  };
 }
+
+@Get('profile/:filename')
+downloadProfile(
+  @Param('filename') filename: string,
+  @Res() res: Response,
+) {
+  const filePath = join(
+    process.cwd(),
+    'uploads',
+    basename(filename),
+  );
+
+  if (!existsSync(filePath)) {
+    throw new NotFoundException('Image not found');
+  }
+
+  return res.download(filePath);
+}
+}
+
